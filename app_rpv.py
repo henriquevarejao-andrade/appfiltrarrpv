@@ -18,7 +18,6 @@ def extrair_dados_rpvs_escala(arquivo_pdf):
     padrao_valor = re.compile(regex_valor)
     padrao_data = re.compile(regex_data_expedicao, re.IGNORECASE)
 
-    # 1º passo: mapeia cada RPV à sua data de expedição
     datas_por_rpv = {}
     with pdfplumber.open(arquivo_pdf) as pdf:
         rpv_atual = None
@@ -34,7 +33,6 @@ def extrair_dados_rpvs_escala(arquivo_pdf):
                 if match_data and rpv_atual:
                     datas_por_rpv[rpv_atual] = match_data.group(1)
 
-    # 2º passo: extrai beneficiários
     dados = []
     with pdfplumber.open(arquivo_pdf) as pdf:
         numero_rpv_atual = None
@@ -71,30 +69,96 @@ def extrair_dados_rpvs_escala(arquivo_pdf):
                             "Valor (R$)": valor,
                         })
 
-    df = pd.DataFrame(dados).drop_duplicates()
-    return df
+    return pd.DataFrame(dados).drop_duplicates()
 
 
-st.set_page_config(page_title="Extrator de RPVs", layout="wide")
-st.title("Extrator de RPVs — Justiça Federal")
-st.caption("Faça upload do PDF com os RPVs para gerar a planilha de beneficiários.")
+def valor_para_float(v):
+    if not v:
+        return 0.0
+    try:
+        return float(v.replace(".", "").replace(",", "."))
+    except Exception:
+        return 0.0
 
-arquivo = st.file_uploader("Selecione o arquivo PDF", type="pdf")
 
-if arquivo:
-    with st.spinner("Processando o PDF..."):
-        df = extrair_dados_rpvs_escala(arquivo)
-
-    st.success(f"Extração concluída: {len(df)} registros encontrados.")
-    st.dataframe(df, use_container_width=True)
-
+def gerar_excel(df):
     saida = io.BytesIO()
     df.to_excel(saida, index=False)
     saida.seek(0)
+    return saida
 
+
+def gerar_csv(df):
+    return df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+
+
+# ── Layout ──────────────────────────────────────────────────────────────────
+
+st.set_page_config(page_title="Extrator de RPVs", page_icon="⚖️", layout="wide")
+
+st.title("⚖️ Extrator de RPVs — Justiça Federal")
+st.caption("Faça upload do PDF com os RPVs para gerar a planilha de beneficiários.")
+st.divider()
+
+# Sidebar
+with st.sidebar:
+    st.header("📂 Upload do arquivo")
+    arquivo = st.file_uploader("Selecione o PDF", type="pdf")
+    st.divider()
+    st.info("Formatos de exportação disponíveis: **Excel** e **CSV**.")
+
+if not arquivo:
+    st.info("Aguardando upload do PDF na barra lateral.")
+    st.stop()
+
+with st.spinner("Processando o PDF, aguarde..."):
+    df = extrair_dados_rpvs_escala(arquivo)
+
+if df.empty:
+    st.warning("Nenhum registro encontrado no PDF.")
+    st.stop()
+
+# Métricas
+total_beneficiarios = len(df)
+total_rpvs = df["RPV"].nunique()
+valor_total = sum(valor_para_float(v) for v in df["Valor (R$)"])
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Beneficiários", f"{total_beneficiarios:,}".replace(",", "."))
+col2.metric("RPVs", total_rpvs)
+col3.metric("Valor Total", f"R$ {valor_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+st.divider()
+
+# Filtro
+rpvs_disponiveis = sorted(df["RPV"].dropna().unique())
+rpv_selecionado = st.selectbox("Filtrar por RPV", options=["Todos"] + rpvs_disponiveis)
+
+df_filtrado = df if rpv_selecionado == "Todos" else df[df["RPV"] == rpv_selecionado]
+
+st.dataframe(df_filtrado, use_container_width=True, hide_index=True)
+
+st.divider()
+
+# Exportação
+st.subheader("📥 Exportar")
+col_excel, col_csv = st.columns(2)
+
+with col_excel:
     st.download_button(
-        label="Baixar Excel",
-        data=saida,
+        label="⬇️ Baixar Excel (.xlsx)",
+        data=gerar_excel(df_filtrado),
         file_name="Base_Consolidada.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+        type="primary",
+    )
+
+with col_csv:
+    st.download_button(
+        label="⬇️ Baixar CSV (.csv)",
+        data=gerar_csv(df_filtrado),
+        file_name="Base_Consolidada.csv",
+        mime="text/csv",
+        use_container_width=True,
     )
