@@ -10,7 +10,7 @@ def extrair_dados_rpvs_escala(arquivo_pdf):
     regex_processo = r'\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}|\d{2}\.\d{7}-\d{1}'
     regex_cpf = r'\d{3}\.\d{3}\.\d{3}-\d{2}'
     regex_valor = r'\d{1,3}(?:\.\d{3})*,\d{2}'
-    regex_data_expedicao = r'aos\s+(\d{2}/\d{2}/\d{4})'
+    regex_data_expedicao = r'Data-base[:\s]+(\d{2}/\d{2}/\d{4})'
 
     padrao_rpv = re.compile(regex_rpv)
     padrao_processo = re.compile(regex_processo)
