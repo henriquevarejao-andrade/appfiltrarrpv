@@ -94,9 +94,9 @@ def gerar_csv(df):
 
 # ── Layout ──────────────────────────────────────────────────────────────────
 
-st.set_page_config(page_title="Extrator de RPVs", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="Extrator de RPVs", page_icon="🏛️", layout="wide")
 
-st.title("⚖️ Extrator de RPVs — Justiça Federal")
+st.title("🏛️ Extrator de RPVs — Justiça Federal")
 st.caption("Faça upload do PDF com os RPVs para gerar a planilha de beneficiários.")
 st.divider()
 
